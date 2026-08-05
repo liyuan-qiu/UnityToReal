@@ -1,0 +1,2 @@
+image_file,tag_id,camera_x_mm,camera_y_mm,camera_z_mm,camera_orientation_reference_frame,euler_rotation_convention,camera_roll_deg,camera_pitch_deg,camera_yaw_deg,camera_qx,camera_qy,camera_qz,camera_qw
+C:\Users\johncklau\Desktop\CapNaviSystem\CamTransformTest\CamCoordTest_1.jpg,0,31.498397861658738,2.1629880018002687,39.56292566319307,camera axes relative to tag frame,intrinsic XYZ; scipy Rotation.as_euler('xyz'),-179.98491111896962,35.09331828556187,0.4106440733680704,0.9534657649155663,0.003377104597383718,-0.3014808760214186,0.0009548255706222116

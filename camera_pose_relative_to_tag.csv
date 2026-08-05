@@ -1,0 +1,14 @@
+image_file,tag_id,camera_x_mm,camera_y_mm,camera_z_mm,camera_roll_deg,camera_pitch_deg,camera_yaw_deg
+C:\Users\johncklau\Desktop\CapNaviSystem\TestPhoto\CamCoordTest_1.jpg,0,-6.806229825,9.807196014,67.85088425,175.7560531,-5.367510068,-1.764691431
+C:\Users\johncklau\Desktop\CapNaviSystem\TestPhoto\CamCoordTest_2.jpg,0,11.98470027,13.26451546,71.56184997,174.6008397,-4.569871566,-1.484321313
+C:\Users\johncklau\Desktop\CapNaviSystem\TestPhoto\CamCoordTest_3.jpg,0,-12.19545615,20.46696023,73.10714151,163.2690992,-9.308589726,-0.922732746
+C:\Users\johncklau\Desktop\CapNaviSystem\TestPhoto\CamCoordTest_4.jpg,0,11.09980608,26.35369628,82.68993876,160.5917741,-10.39514828,1.227510627
+C:\Users\johncklau\Desktop\CapNaviSystem\TestPhoto\CamCoordTest_5.jpg,0,11.24935322,47.44778515,79.94641574,159.1582914,-10.68221082,4.274375603
+C:\Users\johncklau\Desktop\CapNaviSystem\TestPhoto\CamCoordTest_6.jpg,0,-24.27526229,38.78588582,60.19787549,158.9562839,-8.488159262,1.814159695
+C:\Users\johncklau\Desktop\CapNaviSystem\TestPhoto\CamCoordTest_7.jpg,0,-31.84948538,5.82264815,39.78365025,173.6129287,-35.8938546,2.518575372
+C:\Users\johncklau\Desktop\CapNaviSystem\TestPhoto\CamCoordTest_8.jpg,0,-24.65749624,6.039677165,46.41369173,174.2674385,-35.18342446,2.195978162
+C:\Users\johncklau\Desktop\CapNaviSystem\TestPhoto\CamCoordTest_9.jpg,0,-15.44228187,5.460830822,44.54697729,174.6360372,-32.87914248,1.613561485
+C:\Users\johncklau\Desktop\CapNaviSystem\TestPhoto\CamCoordTest_10.jpg,0,8.412198082,5.74751211,46.12423374,173.2696785,17.92119711,-1.853089416
+C:\Users\johncklau\Desktop\CapNaviSystem\TestPhoto\CamCoordTest_11.jpg,0,17.93183972,6.423872665,47.52662,172.3532597,17.0735694,-2.059512267
+C:\Users\johncklau\Desktop\CapNaviSystem\TestPhoto\CamCoordTest_12.jpg,0,-5.360065906,1.780656493,39.48967726,178.2296524,7.39997174,0.081517934
+C:\Users\johncklau\Desktop\CapNaviSystem\TestPhoto\CamCoordTest_13.jpg,0,3.887383397,5.672723878,39.55892207,173.2838732,1.066668566,0.073107097
