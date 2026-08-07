@@ -13,6 +13,7 @@ Writes camera_pose_unity_cam2tag_face.csv and a Real RH / Unity LH plot.
 """
 from __future__ import annotations
 
+import argparse
 import csv
 import math
 from pathlib import Path
@@ -21,9 +22,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import FuncFormatter
 
-CSV_IN = Path(__file__).with_name("camera_pose_relative_to_tag.csv")
-CSV_OUT = Path(__file__).with_name("camera_pose_unity_cam2tag_face.csv")
-OUT_PNG = Path(__file__).with_name("real_vs_unity_cam2tag_face.png")
+DEFAULT_CSV_IN = Path(__file__).with_name("camera_pose_relative_to_tag.csv")
+DEFAULT_CSV_OUT = Path(__file__).with_name("camera_pose_unity_cam2tag_face.csv")
+DEFAULT_OUT_PNG = Path(__file__).with_name("real_vs_unity_cam2tag_face.png")
 
 ORIGINAL = np.array([0.03160001, -2.3284, 12.5992], dtype=float)
 S = np.diag([-1.0, 1.0, 1.0])
@@ -115,14 +116,65 @@ def set_equal(ax, pts, pad=0.01):
     return r
 
 
+def parse_args() -> argparse.Namespace:
+    p = argparse.ArgumentParser(
+        description="Convert tag-frame camera poses (CAM→TAG ExtXYZ) to Unity CSV."
+    )
+    p.add_argument(
+        "--input",
+        type=Path,
+        default=DEFAULT_CSV_IN,
+        help=f"Input tag CSV (default: {DEFAULT_CSV_IN.name})",
+    )
+    p.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="Unity CSV output (default: <input_dir>/camera_pose_unity_cam2tag_face.csv "
+        f"or {DEFAULT_CSV_OUT.name} for the default input)",
+    )
+    p.add_argument(
+        "--plot",
+        type=Path,
+        default=None,
+        help="Optional Real/Unity plot PNG path (default: next to output; use '' to skip)",
+    )
+    p.add_argument(
+        "--no-plot",
+        action="store_true",
+        help="Skip writing the comparison plot",
+    )
+    return p.parse_args()
+
+
 def main() -> None:
-    rows = list(csv.DictReader(CSV_IN.open(encoding="utf-8-sig")))
+    args = parse_args()
+    csv_in: Path = args.input
+    if args.output is not None:
+        csv_out = args.output
+    elif csv_in.resolve() == DEFAULT_CSV_IN.resolve():
+        csv_out = DEFAULT_CSV_OUT
+    else:
+        csv_out = csv_in.with_name("camera_pose_unity_cam2tag_face.csv")
+
+    if args.no_plot:
+        out_png = None
+    elif args.plot is not None:
+        out_png = args.plot
+    elif csv_out.resolve().parent == DEFAULT_CSV_OUT.resolve().parent:
+        out_png = DEFAULT_OUT_PNG
+    else:
+        out_png = csv_out.with_name("real_vs_unity_cam2tag_face.png")
+
+    rows = list(csv.DictReader(csv_in.open(encoding="utf-8-sig")))
     out = []
     cams_r, fwds_r, c2_r = [], [], []
     cams_u, tags_u, fwds_u, c2_u = [], [], [], []
     labels, dots_r, dots_u, match = [], [], [], []
 
     print("CAM->TAG Extrinsic XYZ; face = R@[0,0,1]; Unity = S@R@S, t = original+S@t")
+    print(f"input  = {csv_in}")
+    print(f"output = {csv_out}")
     print(f"original = {ORIGINAL.tolist()}")
     print()
 
@@ -205,13 +257,17 @@ def main() -> None:
             f"quat=({q[0]:+.4f},{q[1]:+.4f},{q[2]:+.4f},{q[3]:+.4f})"
         )
 
-    with CSV_OUT.open("w", newline="", encoding="utf-8-sig") as f:
+    csv_out.parent.mkdir(parents=True, exist_ok=True)
+    with csv_out.open("w", newline="", encoding="utf-8-sig") as f:
         w = csv.DictWriter(f, fieldnames=list(out[0].keys()))
         w.writeheader()
         w.writerows(out)
-    print(f"\nWrote {CSV_OUT}")
+    print(f"\nWrote {csv_out}")
     print(f"mean look_dot real={np.mean(dots_r):+.3f}  unity={np.mean(dots_u):+.3f}")
     print(f"mean |S@fwd_real - fwd_unity|={np.mean(match):.2e}")
+
+    if out_png is None:
+        return
 
     cams_r = np.asarray(cams_r)
     fwds_r = np.asarray(fwds_r)
@@ -323,13 +379,14 @@ def main() -> None:
 
     fig.suptitle(
         "CAM→TAG face (R@[0,0,1])  |  Real RH vs Unity LH   "
-        "CSV: camera_pose_unity_cam2tag_face.csv",
+        f"CSV: {csv_out.name}",
         fontsize=12,
     )
     fig.subplots_adjust(left=0.03, right=0.98, top=0.86, bottom=0.05)
-    fig.savefig(OUT_PNG, dpi=160)
+    out_png.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out_png, dpi=160)
     plt.close(fig)
-    print(f"Wrote {OUT_PNG}")
+    print(f"Wrote {out_png}")
 
 
 if __name__ == "__main__":

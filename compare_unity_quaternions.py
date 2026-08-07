@@ -89,7 +89,7 @@ def main() -> None:
     if dots:
         print()
         print(f"mean |q·q| = {sum(dots)/len(dots):.6f}   mean ang = {sum(angle_deg(d) for d in dots)/len(dots):.4f} deg")
-        print("OK if |q·q| ≈ 1 (q and -q are the same rotation).")
+        print("OK if |q.q| ~ 1 (q and -q are the same rotation).")
 
 
 if __name__ == "__main__":

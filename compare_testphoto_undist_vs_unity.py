@@ -28,7 +28,7 @@ OUT_DIR = ROOT / "compare_out" / "testphoto_undist_vs_unity"
 UNDIST_DIR = OUT_DIR / "undistorted_testphoto"
 UNDIST_SX, UNDIST_SY = 1.0, 1.0
 
-# Calibrated capsule intrinsics (user-provided)
+# Default calibrated capsule intrinsics (overridden by --intrinsics)
 K = np.array(
     [
         [762.7627033, 0.0, 661.53817354],
@@ -42,6 +42,17 @@ DIST = np.array(
     [-0.38898088, 0.15099531, -0.00301529, 0.00057045, -0.02746219],
     dtype=np.float64,
 )
+
+
+def load_intrinsics(path: Path) -> tuple[np.ndarray, np.ndarray]:
+    data = np.load(path)
+    k = np.asarray(data["camera_matrix"], dtype=np.float64)
+    dist = np.asarray(data["dist_coeffs"], dtype=np.float64).reshape(-1)
+    if k.shape != (3, 3):
+        raise ValueError(f"camera_matrix must be 3x3, got {k.shape}")
+    if dist.size < 4:
+        raise ValueError(f"dist_coeffs too short: {dist.size}")
+    return k, dist
 
 IMG_W, IMG_H = 1080, 720
 WORK_W, WORK_H = 540, 360
@@ -219,7 +230,7 @@ def make_panel(
 
 
 def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="Tag: undistort TestPhoto (+optional scale) vs Unity.")
+    p = argparse.ArgumentParser(description="Tag: undistort real photos (+optional scale) vs Unity.")
     p.add_argument(
         "--scale",
         type=float,
@@ -245,7 +256,55 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="After baking scale into und, only search shift (sx=sy=1) to measure residual.",
     )
+    p.add_argument("--real-dir", type=Path, default=None, help="Directory of real JPEGs.")
+    p.add_argument("--unity-dir", type=Path, default=None, help="Directory of Unity RGB captures.")
+    p.add_argument(
+        "--ids",
+        type=str,
+        default="",
+        help="Comma-separated ids, e.g. 1,2,3,4,5,6,7 (default: 1-13 TestPhoto).",
+    )
+    p.add_argument(
+        "--real-name",
+        type=str,
+        default="CamCoordTest_{id}.jpg",
+        help="Real filename pattern with {id}, e.g. Photo{id}_tag.jpg",
+    )
+    p.add_argument(
+        "--unity-name",
+        type=str,
+        default="CamCoordTest_{id}_Unity.jpg",
+        help="Unity filename pattern with {id}, e.g. Photo{id}_tag_Unity.jpg",
+    )
+    p.add_argument(
+        "--no-rot180",
+        action="store_true",
+        help="Only try rot=0 (skip Unity 180 search).",
+    )
+    p.add_argument(
+        "--intrinsics",
+        type=Path,
+        default=None,
+        help="capsule_intrinsics.npz with camera_matrix + dist_coeffs "
+        "(default: hardcoded K/DIST in this script).",
+    )
     return p.parse_args()
+
+
+def parse_ids(s: str) -> list[int]:
+    if not s.strip():
+        return list(IDS)
+    out: list[int] = []
+    for part in s.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        if "-" in part:
+            a, b = part.split("-", 1)
+            out.extend(range(int(a), int(b) + 1))
+        else:
+            out.append(int(part))
+    return out
 
 
 def scales_from_args(args: argparse.Namespace) -> tuple[float, float]:
@@ -269,15 +328,30 @@ def scales_from_args(args: argparse.Namespace) -> tuple[float, float]:
 
 
 def main() -> None:
-    global OUT_DIR, UNDIST_DIR, UNDIST_SX, UNDIST_SY, SX_MIN, SX_MAX, SY_MIN, SY_MAX, SX_STEPS, SY_STEPS
+    global OUT_DIR, UNDIST_DIR, UNDIST_SX, UNDIST_SY, SX_MIN, SX_MAX, SY_MIN, SY_MAX, SX_STEPS, SY_STEPS, K, DIST
     args = parse_args()
+    if args.intrinsics is not None:
+        ip = args.intrinsics if args.intrinsics.is_absolute() else (ROOT / args.intrinsics)
+        K, DIST = load_intrinsics(ip)
+        print(f"Loaded intrinsics: {ip}")
+        print(f"  fx,fy=({K[0,0]:.4f},{K[1,1]:.4f}) cx,cy=({K[0,2]:.4f},{K[1,2]:.4f})")
+        print(f"  dist={DIST.tolist()}")
     UNDIST_SX, UNDIST_SY = scales_from_args(args)
     scaled = abs(UNDIST_SX - 1.0) > 1e-6 or abs(UNDIST_SY - 1.0) > 1e-6
     out_name = args.out_name.strip() or (
         "testphoto_undist_scaled_vs_unity" if scaled else "testphoto_undist_vs_unity"
     )
     OUT_DIR = ROOT / "compare_out" / out_name
-    UNDIST_DIR = OUT_DIR / "undistorted_testphoto"
+    UNDIST_DIR = OUT_DIR / "undistorted_real"
+
+    real_dir = (args.real_dir if args.real_dir is not None else REAL_DIR)
+    unity_dir = (args.unity_dir if args.unity_dir is not None else UNITY_DIR)
+    if not real_dir.is_absolute():
+        real_dir = (ROOT / real_dir).resolve()
+    if not unity_dir.is_absolute():
+        unity_dir = (ROOT / unity_dir).resolve()
+    ids = parse_ids(args.ids)
+    try_rots = (0,) if args.no_rot180 else TRY_ROTS
 
     if args.fix_search_scale:
         SX_MIN = SX_MAX = SY_MIN = SY_MAX = 1.0
@@ -286,21 +360,22 @@ def main() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     UNDIST_DIR.mkdir(parents=True, exist_ok=True)
 
-    npz_path = ROOT / "capsule_intrinsics.npz"
-    np.savez(npz_path, camera_matrix=K, dist_coeffs=DIST)
-    print(f"Wrote {npz_path}")
+    print(f"real  = {real_dir}")
+    print(f"unity = {unity_dir}")
     print(f"OUT = {OUT_DIR}")
+    print(f"K fx,fy=({K[0,0]:.4f},{K[1,1]:.4f}) cx,cy=({K[0,2]:.4f},{K[1,2]:.4f})")
     print(f"post-undistort scale sx,sy=({UNDIST_SX:.4f},{UNDIST_SY:.4f})")
     print(f"Unity scale search: sx[{SX_MIN},{SX_MAX}] sy[{SY_MIN},{SY_MAX}] steps={SX_STEPS}")
+    print(f"try_rots={try_rots}")
 
     rows = []
     thumbs = []
 
-    for i in IDS:
-        rp = REAL_DIR / f"CamCoordTest_{i}.jpg"
-        up = UNITY_DIR / f"CamCoordTest_{i}_Unity.jpg"
+    for i in ids:
+        rp = real_dir / args.real_name.format(id=i)
+        up = unity_dir / args.unity_name.format(id=i)
         if not rp.exists() or not up.exists():
-            print(f"skip {i}")
+            print(f"skip {i}: missing {rp.name if not rp.exists() else ''} {up.name if not up.exists() else ''}")
             continue
 
         raw = cv2.imread(str(rp), cv2.IMREAD_COLOR)
@@ -316,7 +391,8 @@ def main() -> None:
         # 1) undistort + optional FOV scale
         und, new_K = undistort_bgr(raw)
         und = center_scale(und, UNDIST_SX, UNDIST_SY)
-        und_path = UNDIST_DIR / f"CamCoordTest_{i}_undist.jpg"
+        stem = rp.stem
+        und_path = UNDIST_DIR / f"{stem}_undist.jpg"
         cv2.imwrite(str(und_path), und)
 
         # 2) compare undistorted(+scaled) real vs Unity
@@ -326,7 +402,7 @@ def main() -> None:
 
         best = None
         scores = {}
-        for rot in TRY_ROTS:
+        for rot in try_rots:
             mov = unity_w if rot == 0 else cv2.rotate(unity_w, cv2.ROTATE_180)
             cand = search_best(ref_e, sobel_mag(to_gray(mov)))
             cand["rot"] = rot
@@ -354,7 +430,7 @@ def main() -> None:
             unity180,
             unity_aligned,
             best,
-            f"CamCoordTest_{i}: undistort+scale({UNDIST_SX:.2f},{UNDIST_SY:.2f}) vs Unity",
+            f"{stem}: undistort+scale({UNDIST_SX:.2f},{UNDIST_SY:.2f}) vs Unity",
         )
         panel_path = OUT_DIR / f"compare_{i}.png"
         panel.save(panel_path)
@@ -367,6 +443,7 @@ def main() -> None:
 
         row = {
             "id": i,
+            "image_file": rp.name,
             "undist_scale_x": f"{UNDIST_SX:.4f}",
             "undist_scale_y": f"{UNDIST_SY:.4f}",
             "rot": best["rot"],
@@ -376,8 +453,8 @@ def main() -> None:
             "dy_full": dy_f,
             "edgeNCC": f"{best['ncc']:.4f}",
             "ncc_nowarp": f"{best['ncc_nowarp']:.4f}",
-            "edgeNCC_rot0": f"{scores[0]['ncc']:.4f}",
-            "edgeNCC_rot180": f"{scores[180]['ncc']:.4f}",
+            "edgeNCC_rot0": f"{scores[0]['ncc']:.4f}" if 0 in scores else "",
+            "edgeNCC_rot180": f"{scores[180]['ncc']:.4f}" if 180 in scores else "",
             "mean_absdiff_full": f"{mean_abs_full:.2f}",
             "mean_absdiff_work": f"{best.get('mean_absdiff', float(np.mean(np.abs(o - u)))):.2f}",
             "undist": und_path.name,
@@ -388,9 +465,11 @@ def main() -> None:
             "new_cy": f"{new_K[1,2]:.4f}",
         }
         rows.append(row)
+        r0 = scores.get(0, {}).get("ncc", float("nan"))
+        r180 = scores.get(180, {}).get("ncc", float("nan"))
         print(
             f"[{i:2d}] und->Unity  best_rot={best['rot']:3d}  "
-            f"NCC={best['ncc']:.3f} (r0={scores[0]['ncc']:.3f}, r180={scores[180]['ncc']:.3f})  "
+            f"NCC={best['ncc']:.3f} (r0={r0:.3f}, r180={r180:.3f})  "
             f"sx,sy=({best['sx']:.2f},{best['sy']:.2f})  "
             f"dx,dy=({dx_f:+d},{dy_f:+d})  mean|diff|={mean_abs_full:.1f}"
         )
