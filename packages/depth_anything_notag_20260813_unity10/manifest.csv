@@ -1,0 +1,4 @@
+﻿id,rgb,depth,mask,note
+1,rgb/Photo1.png,depth/Photo1.png,mask/Photo1.png,"real=NoTag undist+color-mask; depth=Unity Depth rot180+scale(0.75,0.85)+shift(32,78) NEAREST + both_mask; depth is Unity viz uint8 NOT metric meters"
+2,rgb/Photo2.png,depth/Photo2.png,mask/Photo2.png,"real=NoTag undist+color-mask; depth=Unity Depth rot180+scale(0.75,0.85)+shift(32,78) NEAREST + both_mask; depth is Unity viz uint8 NOT metric meters"
+3,rgb/Photo3.png,depth/Photo3.png,mask/Photo3.png,"real=NoTag undist+color-mask; depth=Unity Depth rot180+scale(0.75,0.85)+shift(32,78) NEAREST + both_mask; depth is Unity viz uint8 NOT metric meters"
