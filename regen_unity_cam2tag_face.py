@@ -144,11 +144,23 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Skip writing the comparison plot",
     )
+    p.add_argument(
+        "--original",
+        type=float,
+        nargs=3,
+        metavar=("X", "Y", "Z"),
+        default=None,
+        help="Unity tag/original position (meters). "
+        f"Default: {ORIGINAL.tolist()}",
+    )
     return p.parse_args()
 
 
 def main() -> None:
+    global ORIGINAL
     args = parse_args()
+    if args.original is not None:
+        ORIGINAL = np.array(args.original, dtype=float)
     csv_in: Path = args.input
     if args.output is not None:
         csv_out = args.output

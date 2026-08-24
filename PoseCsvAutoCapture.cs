@@ -11,7 +11,7 @@ using UnityEngine.Rendering.HighDefinition;
 /// <summary>
 /// Put on the Camera. Reads camera_pose_unity_cam2tag_face.csv, applies
 /// unity_pos + unity_quat (preferred) or unity_rot euler, captures RGB + Depth
-/// every 1s into recording/camera_pose_unity_cam2tag_face/
+/// every 1s into Output Directory (Inspector). If empty, uses recording/<folder>.
 /// Also writes unity_camera_quat_export.csv with the live camera quaternion
 /// for comparison against CSV unity_quat_*.
 /// Names: CamCoordTest_1_Unity.jpg , CamCoordTest_1_Depth.png
@@ -32,7 +32,10 @@ public class PoseCsvAutoCapture : MonoBehaviour
     public bool preferQuaternion = true;
 
     [Header("Output")]
-    [Tooltip("Subfolder under ../recording/ ; default = CSV file name without extension.")]
+    [Tooltip("Where RGB, Depth, and pose CSVs are written. Absolute path, or relative to project root (parent of Assets). Leave empty to use recording/<Output Folder Name>.")]
+    public string outputDirectory = "";
+
+    [Tooltip("Used only when Output Directory is empty: subfolder under ../recording/. Default = CSV file name without extension.")]
     public string outputFolderName = "camera_pose_unity_cam2tag_face";
 
     private Camera mainCamera;
@@ -85,10 +88,7 @@ public class PoseCsvAutoCapture : MonoBehaviour
         }
 
         resolvedCsvPath = ResolveCsvPath(csvRelativePath);
-        string folder = string.IsNullOrEmpty(outputFolderName)
-            ? Path.GetFileNameWithoutExtension(resolvedCsvPath)
-            : outputFolderName;
-        saveDirectory = Path.GetFullPath(Path.Combine(Application.dataPath, "../recording", folder));
+        saveDirectory = ResolveOutputDirectory();
         Directory.CreateDirectory(saveDirectory);
 
         Debug.Log($"[PoseCsvAutoCapture] CSV: {resolvedCsvPath}");
@@ -147,6 +147,7 @@ public class PoseCsvAutoCapture : MonoBehaviour
         }
 
         Debug.Log($"[PoseCsvAutoCapture] Capturing {rows.Count} poses, interval={intervalSeconds}s");
+        TryCopyInputPoseCsv();
 
         var export = new StringBuilder();
         export.AppendLine(
@@ -217,9 +218,44 @@ public class PoseCsvAutoCapture : MonoBehaviour
 
         string exportPath = Path.Combine(saveDirectory, "unity_camera_quat_export.csv");
         File.WriteAllText(exportPath, export.ToString(), Encoding.UTF8);
+        TryCopyInputPoseCsv();
         Debug.Log($"[PoseCsvAutoCapture] Quaternion export: {exportPath}");
         Debug.Log($"[PoseCsvAutoCapture] Done. Files in: {saveDirectory}");
         isRunning = false;
+    }
+
+    private string ResolveOutputDirectory()
+    {
+        if (!string.IsNullOrWhiteSpace(outputDirectory))
+        {
+            string raw = outputDirectory.Trim().Trim('"');
+            if (Path.IsPathRooted(raw))
+                return Path.GetFullPath(raw);
+
+            string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+            return Path.GetFullPath(Path.Combine(projectRoot, raw));
+        }
+
+        string folder = string.IsNullOrEmpty(outputFolderName)
+            ? Path.GetFileNameWithoutExtension(resolvedCsvPath)
+            : outputFolderName;
+        return Path.GetFullPath(Path.Combine(Application.dataPath, "../recording", folder));
+    }
+
+    private void TryCopyInputPoseCsv()
+    {
+        if (string.IsNullOrEmpty(resolvedCsvPath) || !File.Exists(resolvedCsvPath))
+            return;
+        try
+        {
+            string dest = Path.Combine(saveDirectory, Path.GetFileName(resolvedCsvPath));
+            if (!string.Equals(Path.GetFullPath(resolvedCsvPath), Path.GetFullPath(dest), StringComparison.OrdinalIgnoreCase))
+                File.Copy(resolvedCsvPath, dest, overwrite: true);
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"[PoseCsvAutoCapture] Could not copy input pose CSV: {e.Message}");
+        }
     }
 
     private static string ResolveCsvPath(string path)
