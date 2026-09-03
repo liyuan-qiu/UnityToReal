@@ -1,0 +1,54 @@
+{
+  "pipeline": [
+    "Real RGB: cv2.undistort(source, K_real, dist_real, newCameraMatrix=K_real)",
+    "Unity RGB: rotate 180 degrees",
+    "Unity depth: rotate 180 degrees and keep grayscale uint8 values",
+    "No Tag-derived sx/sy/tx/ty/rotation/pitch/yaw image warp"
+  ],
+  "sample_count": 4,
+  "real_intrinsics_source": "trainingData20260818_2/capsule_intrinsics.npz",
+  "K_real": [
+    [
+      753.5787513000816,
+      0.0,
+      715.0848407416375
+    ],
+    [
+      0.0,
+      753.0463546202838,
+      409.5792496669502
+    ],
+    [
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "dist_real": [
+    -0.38076030753871304,
+    0.1353657577642566,
+    -0.0019393218407953616,
+    -0.00046786477155269426,
+    -0.02266696831336642
+  ],
+  "unity_render_settings": {
+    "gate_fit": "Horizontal",
+    "horizontal_fov_deg": 71.25,
+    "lens_shift_xy": [
+      0.164,
+      -0.081
+    ],
+    "original_xyz": [
+      -0.358725,
+      -2.2282,
+      13.2305
+    ],
+    "note": "Applied in Unity before rendering; not applied again by this script."
+  },
+  "unity_rotated_180": true,
+  "depth": {
+    "storage": "uint8 grayscale PNG copied from Unity shader values",
+    "metric": false,
+    "warning": "Do not interpret as meters without confirming the Unity depth shader encoding/range."
+  }
+}
